@@ -626,7 +626,7 @@ const UrdfUploader = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div>div
   );
 };
 
