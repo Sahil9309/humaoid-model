@@ -2,27 +2,28 @@
 
 ## Changes Made
 
-### A) Layout Changes ✓
-1. **Split Sidebar Layout**: Changed from single sidebar to dual side-by-side panels:
-   - Left Panel (w-80): FileUploadPanel 
-   - Right Panel (w-80): VideoRecorder
-   - Maintained responsive design and backdrop styling
+### A) Two-Column Layout Restructure ✓
+1. **Responsive Two-Column Grid**: Changed from flex sidebar layout to CSS Grid:
+   - Left Column (50% width): FileUploadPanel + VideoRecorder stacked vertically
+   - Right Column (50% width): 3D Robot Model + Camera Feed in upper right corner
+   - Added responsive breakpoints: stacks to single column on mobile (lg:grid-cols-2)
 
-2. **FileUploadPanel Updated**: Removed hardcoded width, now properly fits within container
+2. **Control Panel Consolidation**: Combined both control panels in left column with gap-6 spacing
 
-### B) Video Feed Control ✓
-1. **Live Camera Hide/Show Logic**: 
-   - MediaPipeTracker now shows only when `!isPlayingRecordedVideo`
-   - Properly hides live camera feed during recorded video playback
+### B) Camera Feed Repositioning ✓
+1. **Camera Position**: 
+   - Camera feed positioned in uppermost right part of right column (absolute top-4 right-4)
+   - Changed MediaPipeTracker from fixed positioning to absolute within right column
+   - Maintains visibility over 3D model without blocking main view
 
-2. **Recorded Video Position**: 
-   - Shows in same position as live camera (top-right area)
-   - Only displays when `recordedVideoBlob && isPlayingRecordedVideo`
-   - Positioned "below" live camera feed conceptually (replaces it during playback)
+2. **Video Playback Positioning**: 
+   - Recorded video player replaces camera feed in same location during playback
+   - Only displays when `recordedVideoBlob && isPlayingRecordedVideo`  
+   - Seamless transition between live camera and recorded video
 
-3. **Automatic Re-enable**: 
-   - Live camera automatically re-appears when recorded video ends
-   - Managed through `isPlayingRecordedVideo` state
+3. **Responsive Behavior**: 
+   - Camera feed stays properly positioned across different screen sizes
+   - Z-index ensures camera overlay doesn't interfere with controls
 
 ### C) Robot Movement Synchronization ✓ (Preserved)
 1. **Recording**: Joint states captured at 30 FPS during recording
@@ -32,10 +33,10 @@
 ## Testing Checklist
 
 ### Layout Testing
-- [ ] Two side-by-side panels visible (file upload left, video recording right)  
-- [ ] Each panel has proper width and styling
-- [ ] Main 3D canvas area properly sized between panels
-- [ ] Responsive design maintained
+- [ ] Left column shows both file upload and video recording panels stacked
+- [ ] Right column shows 3D robot model taking full right half of screen  
+- [ ] Camera feed positioned in uppermost right corner of right column
+- [ ] Responsive design: single column on mobile, two columns on large screens
 
 ### Video Feed Control Testing
 - [ ] Live camera visible by default
@@ -65,14 +66,19 @@
 ### Key Logic Changes:
 1. **Layout Structure**:
    ```jsx
-   {/* File Upload Panel - Left Sidebar */}
-   <div className="w-80 bg-slate-900/80...">
+   {/* Left Column - Controls */}
+   <div className="bg-slate-900/80 ... flex flex-col gap-6">
      <FileUploadPanel ... />
+     <VideoRecorder ... />
    </div>
    
-   {/* Video Recording Panel - Right Sidebar */}
-   <div className="w-80 bg-slate-900/80...">
-     <VideoRecorder ... />
+   {/* Right Column - 3D Model and Camera */}
+   <div className="relative flex flex-col">
+     <BodyController ... />
+     {/* Camera positioned absolutely in upper right */}
+     <div className="absolute top-4 right-4 z-30">
+       <MediaPipeTracker ... />
+     </div>
    </div>
    ```
 
