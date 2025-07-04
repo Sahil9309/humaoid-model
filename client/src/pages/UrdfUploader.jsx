@@ -368,18 +368,18 @@ const UrdfUploader = () => {
 
           {/* Video Recording Panel - Right Sidebar */}
           <div className="w-80 bg-slate-900/80 backdrop-blur-sm border-r border-purple-500/20 p-4 overflow-y-auto">
-            <VideoRecorder
-              recordingSourceRef={mediaPipeTrackerRef}
-              onRecordingStatusChange={handleRecordingStatusChange}
-              onVideoAvailable={handleVideoAvailable}
-              isRobotLoaded={robotLoadedRef.current}
-              isPlayingRecordedVideo={isPlayingRecordedVideo}
-              setIsPlayingRecordedVideo={setIsPlayingRecordedVideo}
-              recordedJointStatesData={recordedJointStatesData}
-              onPlayRecordedData={handlePlayRecordedData}
-              recordedVideoPlayerRef={recordedVideoPlayerRef}
-            />
-          </div>
+           <VideoRecorder
+  recordingSourceRef={mediaPipeTrackerRef}
+  onRecordingStatusChange={handleRecordingStatusChange}
+  onVideoAvailable={handleVideoAvailable}
+  isRobotLoaded={robotLoadedRef.current}
+  isPlayingRecordedVideo={isPlayingRecordedVideo}
+  setIsPlayingRecordedVideo={setIsPlayingRecordedVideo}
+  recordedJointStatesData={recordedJointStatesData}
+  onPlayRecordedData={handlePlayRecordedData}
+  recordedVideoPlayerRef={recordedVideoPlayerRef}
+/>
+
 
           {/* Main Content Area */}
           <div className="flex-1 relative">
