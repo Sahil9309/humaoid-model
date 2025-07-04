@@ -317,7 +317,7 @@ const MediaPipeTracker = React.forwardRef(
 
     return (
       <div
-        className="fixed top-4 right-4 z-50 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700"
+        className="absolute top-4 right-4 z-50 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700"
         style={{ width: `${width}px`, height: `${height}px` }}
       >
         <video

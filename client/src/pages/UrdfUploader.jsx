@@ -346,284 +346,279 @@ const UrdfUploader = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
-      <div className="max-w-full mx-auto h-screen flex flex-col">
-        <div className="flex-1 flex relative">
-          {/* File Upload Panel - Left Sidebar */}
-          <div className="w-80 bg-slate-900/80 backdrop-blur-sm border-r border-purple-500/20 p-4 overflow-y-auto">
-            <FileUploadPanel
-              urdfFile={urdfFile}
-              meshFiles={meshFiles}
-              status={status}
-              canvasError={canvasError}
-              loadingProgress={loadingProgress}
-              robotLoadRequested={robotLoadRequested}
-              onUrdfFileChange={setUrdfFile}
-              onMeshFilesChange={setMeshFiles}
-              onLoadRobot={handleLoadRobot}
-              onClearFiles={handleClearFiles}
-              onStatusChange={setStatus}
-              onLoadingProgressChange={setLoadingProgress}
-            />
-          </div>
+      <div className="max-w-full mx-auto h-screen grid lg:grid-cols-2 grid-cols-1 gap-0">
+        {/* Left Column - Controls */}
+        <div className="bg-slate-900/80 backdrop-blur-sm lg:border-r lg:border-b-0 border-b border-purple-500/20 p-4 overflow-y-auto flex flex-col gap-6">
+          {/* File Upload Panel */}
+          <FileUploadPanel
+            urdfFile={urdfFile}
+            meshFiles={meshFiles}
+            status={status}
+            canvasError={canvasError}
+            loadingProgress={loadingProgress}
+            robotLoadRequested={robotLoadRequested}
+            onUrdfFileChange={setUrdfFile}
+            onMeshFilesChange={setMeshFiles}
+            onLoadRobot={handleLoadRobot}
+            onClearFiles={handleClearFiles}
+            onStatusChange={setStatus}
+            onLoadingProgressChange={setLoadingProgress}
+          />
 
-          {/* Video Recording Panel - Right Sidebar */}
-          <div className="w-80 bg-slate-900/80 backdrop-blur-sm border-r border-purple-500/20 p-4 overflow-y-auto">
-           <VideoRecorder
-  recordingSourceRef={mediaPipeTrackerRef}
-  onRecordingStatusChange={handleRecordingStatusChange}
-  onVideoAvailable={handleVideoAvailable}
-  isRobotLoaded={robotLoadedRef.current}
-  isPlayingRecordedVideo={isPlayingRecordedVideo}
-  setIsPlayingRecordedVideo={setIsPlayingRecordedVideo}
-  recordedJointStatesData={recordedJointStatesData}
-  onPlayRecordedData={handlePlayRecordedData}
-  recordedVideoPlayerRef={recordedVideoPlayerRef}
-/>
+          {/* Video Recording Panel */}
+          <VideoRecorder
+            recordingSourceRef={mediaPipeTrackerRef}
+            onRecordingStatusChange={handleRecordingStatusChange}
+            onVideoAvailable={handleVideoAvailable}
+            isRobotLoaded={robotLoadedRef.current}
+            isPlayingRecordedVideo={isPlayingRecordedVideo}
+            setIsPlayingRecordedVideo={setIsPlayingRecordedVideo}
+            recordedJointStatesData={recordedJointStatesData}
+            onPlayRecordedData={handlePlayRecordedData}
+            recordedVideoPlayerRef={recordedVideoPlayerRef}
+          />
+        </div>
 
+        {/* Right Column - 3D Model and Camera */}
+        <div className="relative flex flex-col">
+          {/* Body Controller */}
+          <BodyController
+            poseLandmarks={poseLandmarks}
+            leftHandLandmarks={leftHandLandmarks}
+            rightHandLandmarks={rightHandLandmarks}
+            loadedRobotInstanceRef={loadedRobotInstanceRef}
+            robotJointStatesRef={robotJointStatesRef}
+            controlSource={controlSource}
+          />
 
-          {/* Main Content Area */}
-          <div className="flex-1 relative">
-            {/* Body Controller */}
-            <BodyController
-              poseLandmarks={poseLandmarks}
-              leftHandLandmarks={leftHandLandmarks}
-              rightHandLandmarks={rightHandLandmarks}
-              loadedRobotInstanceRef={loadedRobotInstanceRef}
-              robotJointStatesRef={robotJointStatesRef}
-              controlSource={controlSource}
-            />
+          {/* Top Right Controls */}
+          <div className="absolute top-4 right-4 z-30 flex flex-col gap-4">
+            {/* MediaPipe Camera Feed - Hidden during recorded video playback */}
+            {!isPlayingRecordedVideo && (
+              <MediaPipeTracker
+                ref={mediaPipeTrackerRef}
+                onResults={handleMediaPipeResults}
+                isTracking={isTracking}
+                width={320}
+                height={240}
+                cameraStreamRef={cameraVideoRef}
+              />
+            )}
 
-            {/* Top Right Controls */}
-            <div className="absolute top-4 right-4 z-30 flex flex-col gap-4">
-              {/* MediaPipe Camera Feed - Hidden during recorded video playback */}
-              {!isPlayingRecordedVideo && (
-                <MediaPipeTracker
-                  ref={mediaPipeTrackerRef}
-                  onResults={handleMediaPipeResults}
-                  isTracking={isTracking}
-                  width={320}
-                  height={240}
-                  cameraStreamRef={cameraVideoRef}
+            {/* Recorded Video Player - Shows below live camera feed */}
+            {recordedVideoBlob && isPlayingRecordedVideo && (
+              <div className="bg-black/80 rounded-lg p-2 backdrop-blur-sm border border-purple-500/20">
+                <video
+                  ref={recordedVideoPlayerRef}
+                  className="w-80 h-60 rounded-lg bg-black"
+                  playsInline
+                  muted
                 />
-              )}
-
-              {/* Recorded Video Player - Shows below live camera feed */}
-              {recordedVideoBlob && isPlayingRecordedVideo && (
-                <div className="bg-black/80 rounded-lg p-2 backdrop-blur-sm border border-purple-500/20">
-                  <video
-                    ref={recordedVideoPlayerRef}
-                    className="w-80 h-60 rounded-lg bg-black"
-                    playsInline
-                    muted
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Debug Info */}
-            {robotLoadedRef.current && (
-              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/75 text-white p-3 rounded-lg text-sm z-40 backdrop-blur-sm border border-gray-700">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        isTracking ? "bg-green-500" : "bg-red-500"
-                      }`}
-                    ></div>
-                    <span>Tracking: {isTracking ? "Active" : "Inactive"}</span>
-                  </div>
-                  <div className="text-gray-300">
-                    Joints:{" "}
-                    {Object.keys(robotJointStatesRef.current || {}).length}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        isRecording ? "bg-red-500" : "bg-gray-500"
-                      }`}
-                    ></div>
-                    <span>
-                      Recording: {isRecording ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  <div className="text-gray-300">
-                    Recorded Frames: {recordedJointStatesData.length}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        controlSource === "camera"
-                          ? "bg-blue-500"
-                          : controlSource === "recorded"
-                          ? "bg-purple-500"
-                          : "bg-gray-500"
-                      }`}
-                    ></div>
-                    <span>Control: {controlSource}</span>
-                  </div>
-                  {poseLandmarks && (
-                    <div className="text-green-400">
-                      Pose detected: {poseLandmarks.length} landmarks
-                    </div>
-                  )}
-                  {recordingStatus && (
-                    <div className="text-cyan-400 text-xs mt-1">
-                      {recordingStatus}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Hidden canvas for video recording */}
-            <canvas
-              ref={drawingCanvasRef}
-              className="hidden"
-              width={640}
-              height={480}
-            />
-
-            {/* 3D Canvas */}
-            {robotLoadRequested && processedUrdfData && !canvasError ? (
-              <div className="w-full h-full bg-gradient-to-br from-slate-900/50 to-purple-900/30">
-                <Canvas
-                  camera={{ position: [2, 2, 2], fov: 50 }}
-                  className="w-full h-full"
-                  gl={{
-                    preserveDrawingBuffer: true,
-                    antialias: true,
-                    alpha: false,
-                    powerPreference: "high-performance",
-                  }}
-                  onError={handleCanvasError}
-                  onCreated={({ gl }) => {
-                    gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                    // Set up canvas for recording
-                    if (drawingCanvasRef.current) {
-                      const canvas = drawingCanvasRef.current;
-                      const ctx = canvas.getContext("2d");
-                      canvas.width = gl.domElement.width;
-                      canvas.height = gl.domElement.height;
-
-                      // Copy WebGL canvas to recording canvas periodically
-                      const copyCanvas = () => {
-                        if (canvas && ctx && gl.domElement) {
-                          ctx.drawImage(gl.domElement, 0, 0);
-                        }
-                        requestAnimationFrame(copyCanvas);
-                      };
-                      copyCanvas();
-                    }
-                  }}
-                >
-                  <ambientLight intensity={0.6} />
-                  <directionalLight position={[5, 5, 5]} intensity={0.8} />
-                  <pointLight position={[-5, 5, 5]} intensity={0.4} />
-
-                  <React.Suspense
-                    fallback={
-                      <group>
-                        <Text
-                          position={[0, 0.5, 0]}
-                          fontSize={0.5}
-                          color="cyan"
-                          anchorX="center"
-                          anchorY="middle"
-                        >
-                          Loading Robot...
-                        </Text>
-                        <Text
-                          position={[0, -0.5, 0]}
-                          fontSize={0.2}
-                          color="cyan"
-                          anchorX="center"
-                          anchorY="middle"
-                        >
-                          {loadingProgress > 0
-                            ? `${Math.round(loadingProgress)}% loaded`
-                            : "Starting..."}
-                        </Text>
-                      </group>
-                    }
-                  >
-                    <RobotErrorBoundary onReset={resetErrorBoundary}>
-                      {robotKey && (
-                        <UrdfRobotModel
-                          key={robotKey}
-                          urdfContent={processedUrdfData.blobUrl}
-                          fileMap={processedMeshData.fileMap}
-                          jointStates={robotJointStatesRef.current}
-                          selectedRobotName="uploaded_robot"
-                          onRobotLoaded={handleRobotLoaded}
-                          onRobotError={handleRobotError}
-                          initialPosition={[0, 0, 0]}
-                          scale={1.0}
-                        />
-                      )}
-                    </RobotErrorBoundary>
-                  </React.Suspense>
-
-                  <CameraUpdater
-                    loadedRobotInstanceRef={loadedRobotInstanceRef}
-                    triggerUpdate={cameraUpdateTrigger}
-                  />
-
-                  <Environment preset="warehouse" />
-
-                  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
-                    <planeGeometry args={[10, 10]} />
-                    <meshStandardMaterial color="#1a1a2e" />
-                  </mesh>
-                </Canvas>
-              </div>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900/50 to-purple-900/30">
-                <div className="text-center">
-                  {canvasError ? (
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-red-600 to-pink-600 rounded-full flex items-center justify-center">
-                      <svg
-                        className="w-12 h-12 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                        />
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-purple-600 to-cyan-600 rounded-full flex items-center justify-center">
-                      <svg
-                        className="w-12 h-12 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                  <h3 className="text-2xl font-semibold text-white mb-2">
-                    {canvasError ? "Rendering Error" : "Upload Robot Files"}
-                  </h3>
-                  <p className="text-slate-400">
-                    {canvasError
-                      ? "Please refresh the page and try again"
-                      : "Select URDF and mesh files to load your robot"}
-                  </p>
-                </div>
               </div>
             )}
           </div>
+
+          {/* Debug Info */}
+          {robotLoadedRef.current && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/75 text-white p-3 rounded-lg text-sm z-40 backdrop-blur-sm border border-gray-700">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      isTracking ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  ></div>
+                  <span>Tracking: {isTracking ? "Active" : "Inactive"}</span>
+                </div>
+                <div className="text-gray-300">
+                  Joints:{" "}
+                  {Object.keys(robotJointStatesRef.current || {}).length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      isRecording ? "bg-red-500" : "bg-gray-500"
+                    }`}
+                  ></div>
+                  <span>Recording: {isRecording ? "Active" : "Inactive"}</span>
+                </div>
+                <div className="text-gray-300">
+                  Recorded Frames: {recordedJointStatesData.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      controlSource === "camera"
+                        ? "bg-blue-500"
+                        : controlSource === "recorded"
+                        ? "bg-purple-500"
+                        : "bg-gray-500"
+                    }`}
+                  ></div>
+                  <span>Control: {controlSource}</span>
+                </div>
+                {poseLandmarks && (
+                  <div className="text-green-400">
+                    Pose detected: {poseLandmarks.length} landmarks
+                  </div>
+                )}
+                {recordingStatus && (
+                  <div className="text-cyan-400 text-xs mt-1">
+                    {recordingStatus}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Hidden canvas for video recording */}
+          <canvas
+            ref={drawingCanvasRef}
+            className="hidden"
+            width={640}
+            height={480}
+          />
+
+          {/* 3D Canvas */}
+          {robotLoadRequested && processedUrdfData && !canvasError ? (
+            <div className="w-full h-full bg-gradient-to-br from-slate-900/50 to-purple-900/30">
+              <Canvas
+                camera={{ position: [2, 2, 2], fov: 50 }}
+                className="w-full h-full"
+                gl={{
+                  preserveDrawingBuffer: true,
+                  antialias: true,
+                  alpha: false,
+                  powerPreference: "high-performance",
+                }}
+                onError={handleCanvasError}
+                onCreated={({ gl }) => {
+                  gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                  // Set up canvas for recording
+                  if (drawingCanvasRef.current) {
+                    const canvas = drawingCanvasRef.current;
+                    const ctx = canvas.getContext("2d");
+                    canvas.width = gl.domElement.width;
+                    canvas.height = gl.domElement.height;
+
+                    // Copy WebGL canvas to recording canvas periodically
+                    const copyCanvas = () => {
+                      if (canvas && ctx && gl.domElement) {
+                        ctx.drawImage(gl.domElement, 0, 0);
+                      }
+                      requestAnimationFrame(copyCanvas);
+                    };
+                    copyCanvas();
+                  }
+                }}
+              >
+                <ambientLight intensity={0.6} />
+                <directionalLight position={[5, 5, 5]} intensity={0.8} />
+                <pointLight position={[-5, 5, 5]} intensity={0.4} />
+
+                <React.Suspense
+                  fallback={
+                    <group>
+                      <Text
+                        position={[0, 0.5, 0]}
+                        fontSize={0.5}
+                        color="cyan"
+                        anchorX="center"
+                        anchorY="middle"
+                      >
+                        Loading Robot...
+                      </Text>
+                      <Text
+                        position={[0, -0.5, 0]}
+                        fontSize={0.2}
+                        color="cyan"
+                        anchorX="center"
+                        anchorY="middle"
+                      >
+                        {loadingProgress > 0
+                          ? `${Math.round(loadingProgress)}% loaded`
+                          : "Starting..."}
+                      </Text>
+                    </group>
+                  }
+                >
+                  <RobotErrorBoundary onReset={resetErrorBoundary}>
+                    {robotKey && (
+                      <UrdfRobotModel
+                        key={robotKey}
+                        urdfContent={processedUrdfData.blobUrl}
+                        fileMap={processedMeshData.fileMap}
+                        jointStates={robotJointStatesRef.current}
+                        selectedRobotName="uploaded_robot"
+                        onRobotLoaded={handleRobotLoaded}
+                        onRobotError={handleRobotError}
+                        initialPosition={[0, 0, 0]}
+                        scale={1.0}
+                      />
+                    )}
+                  </RobotErrorBoundary>
+                </React.Suspense>
+
+                <CameraUpdater
+                  loadedRobotInstanceRef={loadedRobotInstanceRef}
+                  triggerUpdate={cameraUpdateTrigger}
+                />
+
+                <Environment preset="warehouse" />
+
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
+                  <planeGeometry args={[10, 10]} />
+                  <meshStandardMaterial color="#1a1a2e" />
+                </mesh>
+              </Canvas>
+            </div>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900/50 to-purple-900/30">
+              <div className="text-center">
+                {canvasError ? (
+                  <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-red-600 to-pink-600 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-12 h-12 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-purple-600 to-cyan-600 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-12 h-12 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                  </div>
+                )}
+                <h3 className="text-2xl font-semibold text-white mb-2">
+                  {canvasError ? "Rendering Error" : "Upload Robot Files"}
+                </h3>
+                <p className="text-slate-400">
+                  {canvasError
+                    ? "Please refresh the page and try again"
+                    : "Select URDF and mesh files to load your robot"}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>div
