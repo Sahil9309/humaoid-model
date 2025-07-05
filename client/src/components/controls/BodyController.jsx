@@ -9,7 +9,7 @@ const BodyController = ({
   leftHandLandmarks,
   rightHandLandmarks,
   loadedRobotInstanceRef,
-  robotJointStatesRef,
+  setRobotJointStates,
   controlSource = "camera",
 }) => {
   const mapRange = useCallback((value, inMin, inMax, outMin, outMax) => {
@@ -19,41 +19,31 @@ const BodyController = ({
     );
   }, []);
 
-  // Directly update the ref, no forceUpdate
+  // Update the robot joint states using the state setter
   const updateRobotJointStates = useCallback(
     (newJointStates) => {
-      if (!robotJointStatesRef || !robotJointStatesRef.current) return;
+      if (!setRobotJointStates) return;
       if (typeof newJointStates === "function") {
-        const currentState = robotJointStatesRef.current || {};
-        const updatedState = newJointStates(currentState);
-        robotJointStatesRef.current = { ...currentState, ...updatedState };
+        setRobotJointStates(newJointStates);
       } else {
-        robotJointStatesRef.current = {
-          ...robotJointStatesRef.current,
-          ...newJointStates,
-        };
+        setRobotJointStates((prev) => ({ ...prev, ...newJointStates }));
       }
     },
-    [robotJointStatesRef],
+    [setRobotJointStates],
   );
 
   // Enhanced error checking
   useEffect(() => {
-    if (!robotJointStatesRef) {
+    if (!setRobotJointStates) {
       return;
     }
 
     if (!loadedRobotInstanceRef) {
       return;
     }
+  }, [setRobotJointStates, loadedRobotInstanceRef]);
 
-    // Initialize joint states if not already done
-    if (!robotJointStatesRef.current) {
-      robotJointStatesRef.current = {};
-    }
-  }, [robotJointStatesRef, loadedRobotInstanceRef]);
-
-  if (!robotJointStatesRef) {
+  if (!setRobotJointStates) {
     return null;
   }
 
@@ -99,7 +89,7 @@ BodyController.defaultProps = {
   leftHandLandmarks: null,
   rightHandLandmarks: null,
   loadedRobotInstanceRef: null,
-  robotJointStatesRef: null,
+  setRobotJointStates: null,
 };
 
 export default BodyController;

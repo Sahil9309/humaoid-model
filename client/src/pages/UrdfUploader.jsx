@@ -42,10 +42,13 @@ const UrdfUploader = () => {
 
   // Refs
   const loadedRobotInstanceRef = useRef(null);
-  const robotJointStatesRef = useRef({}); // This will store the joint states
+  const robotJointStatesRef = useRef({}); // This will store the joint states for recording
   const blobUrlsRef = useRef([]);
   const robotLoadedRef = useRef(false);
   const [cameraUpdateTrigger, setCameraUpdateTrigger] = useState(0);
+
+  // Robot joint states for rendering (triggers re-renders)
+  const [robotJointStates, setRobotJointStates] = useState({});
 
   // Video recording refs
   const drawingCanvasRef = useRef(null);
@@ -160,6 +163,7 @@ const UrdfUploader = () => {
         initialJointStates[jointName] = 0; // Initialize to 0 or default position
       });
       robotJointStatesRef.current = initialJointStates;
+      setRobotJointStates(initialJointStates);
       console.log(
         "Robot loaded with joints:",
         Object.keys(robotInstance.joints),
@@ -186,6 +190,7 @@ const UrdfUploader = () => {
     loadedRobotInstanceRef.current = null;
     robotLoadedRef.current = false;
     robotJointStatesRef.current = {};
+    setRobotJointStates({});
     setCanvasError(null);
     setStatus("Files cleared. Upload new URDF and mesh files.");
 
@@ -282,6 +287,7 @@ const UrdfUploader = () => {
         // Remove timestamp before applying to robot
         const { timestamp, ...jointStates } = frameData;
         robotJointStatesRef.current = jointStates;
+        setRobotJointStates(jointStates);
       }
 
       frameIndex++;
@@ -302,27 +308,10 @@ const UrdfUploader = () => {
     return `robot-${processedUrdfData.name}-${meshFiles.size}`;
   }, [processedUrdfData?.name, meshFiles.size]);
 
-  // Effect to update robot joints when joint states change
+  // Sync ref with state for recording purposes
   useEffect(() => {
-    const robot = loadedRobotInstanceRef.current;
-    const jointStates = robotJointStatesRef.current;
-
-    if (!robot || !robotLoadedRef.current || !jointStates) {
-      return;
-    }
-
-    // Apply joint updates to the robot
-    Object.keys(jointStates).forEach((jointName) => {
-      const urdfJoint = robot.joints[jointName];
-      const targetAngle = jointStates[jointName];
-
-      if (urdfJoint && typeof targetAngle === "number" && !isNaN(targetAngle)) {
-        if (Math.abs(urdfJoint.angle - targetAngle) > 0.001) {
-          urdfJoint.setJointValue(targetAngle);
-        }
-      }
-    });
-  }, [robotJointStatesRef.current, robotLoadedRef.current]);
+    robotJointStatesRef.current = robotJointStates;
+  }, [robotJointStates]);
 
   // Set up drawing canvas ref for video recording
   useEffect(() => {
@@ -344,7 +333,7 @@ const UrdfUploader = () => {
     };
   }, [cleanupBlobUrls]);
 
- return (
+  return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
       <div className="max-w-full mx-auto h-screen grid lg:grid-cols-4 grid-cols-1 gap-0">
         {/* Left Column - Controls (1/4 width) */}
@@ -389,7 +378,7 @@ const UrdfUploader = () => {
             leftHandLandmarks={leftHandLandmarks}
             rightHandLandmarks={rightHandLandmarks}
             loadedRobotInstanceRef={loadedRobotInstanceRef}
-            robotJointStatesRef={robotJointStatesRef}
+            setRobotJointStates={setRobotJointStates}
             controlSource={controlSource}
           />
 
@@ -415,7 +404,7 @@ const UrdfUploader = () => {
                   className="w-80 h-60 rounded-lg bg-black"
                   playsInline
                   muted
-                  style={{ display: isPlayingRecordedVideo ? 'block' : 'none' }}
+                  style={{ display: isPlayingRecordedVideo ? "block" : "none" }}
                 />
               </div>
             )}
@@ -551,7 +540,7 @@ const UrdfUploader = () => {
                         key={robotKey}
                         urdfContent={processedUrdfData.blobUrl}
                         fileMap={processedMeshData.fileMap}
-                        jointStates={robotJointStatesRef.current}
+                        jointStates={robotJointStates}
                         selectedRobotName="uploaded_robot"
                         onRobotLoaded={handleRobotLoaded}
                         onRobotError={handleRobotError}
