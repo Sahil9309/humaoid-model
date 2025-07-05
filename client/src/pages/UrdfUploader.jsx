@@ -344,26 +344,28 @@ const UrdfUploader = () => {
     };
   }, [cleanupBlobUrls]);
 
-  return (
+ return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
-      <div className="max-w-full mx-auto h-screen grid lg:grid-cols-2 grid-cols-1 gap-0">
-        {/* Left Column - Controls */}
+      <div className="max-w-full mx-auto h-screen grid lg:grid-cols-4 grid-cols-1 gap-0">
+        {/* Left Column - Controls (1/4 width) */}
         <div className="bg-slate-900/80 backdrop-blur-sm lg:border-r lg:border-b-0 border-b border-purple-500/20 p-4 overflow-y-auto flex flex-col gap-6">
-          {/* File Upload Panel */}
-          <FileUploadPanel
-            urdfFile={urdfFile}
-            meshFiles={meshFiles}
-            status={status}
-            canvasError={canvasError}
-            loadingProgress={loadingProgress}
-            robotLoadRequested={robotLoadRequested}
-            onUrdfFileChange={setUrdfFile}
-            onMeshFilesChange={setMeshFiles}
-            onLoadRobot={handleLoadRobot}
-            onClearFiles={handleClearFiles}
-            onStatusChange={setStatus}
-            onLoadingProgressChange={setLoadingProgress}
-          />
+          {/* File Upload Panel - Full width now */}
+          <div>
+            <FileUploadPanel
+              urdfFile={urdfFile}
+              meshFiles={meshFiles}
+              status={status}
+              canvasError={canvasError}
+              loadingProgress={loadingProgress}
+              robotLoadRequested={robotLoadRequested}
+              onUrdfFileChange={setUrdfFile}
+              onMeshFilesChange={setMeshFiles}
+              onLoadRobot={handleLoadRobot}
+              onClearFiles={handleClearFiles}
+              onStatusChange={setStatus}
+              onLoadingProgressChange={setLoadingProgress}
+            />
+          </div>
 
           {/* Video Recording Panel */}
           <VideoRecorder
@@ -379,8 +381,8 @@ const UrdfUploader = () => {
           />
         </div>
 
-        {/* Right Column - 3D Model and Camera */}
-        <div className="relative flex flex-col">
+        {/* Right Column - 3D Model and Camera (3/4 width) */}
+        <div className="relative flex flex-col lg:col-span-3">
           {/* Body Controller */}
           <BodyController
             poseLandmarks={poseLandmarks}
@@ -392,8 +394,8 @@ const UrdfUploader = () => {
           />
 
           {/* Top Right Controls */}
-          <div className="absolute top-4 right-4 z-30 flex flex-col gap-4">
-            {/* MediaPipe Camera Feed - Hidden during recorded video playback */}
+          <div className="absolute top-0 right-0 z-30 flex flex-col gap-4">
+            {/* MediaPipe Camera Feed */}
             {!isPlayingRecordedVideo && (
               <MediaPipeTracker
                 ref={mediaPipeTrackerRef}
@@ -405,22 +407,23 @@ const UrdfUploader = () => {
               />
             )}
 
-            {/* Recorded Video Player - Shows below live camera feed */}
-            {recordedVideoBlob && isPlayingRecordedVideo && (
+            {/* Recorded Video Player - Below live camera feed */}
+            {recordedVideoBlob && (
               <div className="bg-black/80 rounded-lg p-2 backdrop-blur-sm border border-purple-500/20">
                 <video
                   ref={recordedVideoPlayerRef}
                   className="w-80 h-60 rounded-lg bg-black"
                   playsInline
                   muted
+                  style={{ display: isPlayingRecordedVideo ? 'block' : 'none' }}
                 />
               </div>
             )}
           </div>
 
-          {/* Debug Info */}
+          {/* Debug Info Panel - Bottom Right Corner */}
           {robotLoadedRef.current && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/75 text-white p-3 rounded-lg text-sm z-40 backdrop-blur-sm border border-gray-700">
+            <div className="absolute bottom-4 right-4 z-30 bg-black/75 text-white p-3 rounded-lg text-sm backdrop-blur-sm border border-gray-700 max-w-xs">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <div
@@ -621,7 +624,7 @@ const UrdfUploader = () => {
           )}
         </div>
       </div>
-    </div>div
+    </div>
   );
 };
 
