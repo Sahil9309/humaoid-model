@@ -35,14 +35,13 @@ const UrdfUploader = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideoBlob, setRecordedVideoBlob] = useState(null);
   const [isPlayingRecordedVideo, setIsPlayingRecordedVideo] = useState(false);
-  const [recordedJointStatesData, setRecordedJointStatesData] = useState([]);
 
   // Control source state
-  const [controlSource, setControlSource] = useState("camera"); // 'camera', 'video', or 'recorded'
+  const [controlSource, setControlSource] = useState("camera"); // 'camera' or 'video'
 
   // Refs
   const loadedRobotInstanceRef = useRef(null);
-  const robotJointStatesRef = useRef({}); // This will store the joint states for recording
+  const robotJointStatesRef = useRef({}); // This will store the joint states
   const blobUrlsRef = useRef([]);
   const robotLoadedRef = useRef(false);
   const [cameraUpdateTrigger, setCameraUpdateTrigger] = useState(0);
@@ -53,11 +52,11 @@ const UrdfUploader = () => {
   // Video recording refs
   const drawingCanvasRef = useRef(null);
   const recordedVideoPlayerRef = useRef(null);
-  const recordingIntervalRef = useRef(null);
   const mediaPipeTrackerRef = useRef(null);
   const cameraVideoRef = useRef(null);
+  const recordedVideoMediaPipeRef = useRef(null); // MediaPipe for recorded video
 
-  // Process URDF file - Fixed to prevent infinite re-renders
+  // Process URDF file
   const processedUrdfData = useMemo(() => {
     if (!urdfFile) return null;
 
@@ -77,7 +76,7 @@ const UrdfUploader = () => {
     }
   }, [urdfFile]);
 
-  // Process mesh files - Fixed to prevent infinite re-renders
+  // Process mesh files
   const processedMeshData = useMemo(() => {
     if (!meshFiles || meshFiles.size === 0) {
       return { fileMap: {} };
@@ -160,7 +159,7 @@ const UrdfUploader = () => {
     if (robotInstance && robotInstance.joints) {
       const initialJointStates = {};
       Object.keys(robotInstance.joints).forEach((jointName) => {
-        initialJointStates[jointName] = 0; // Initialize to 0 or default position
+        initialJointStates[jointName] = 0;
       });
       robotJointStatesRef.current = initialJointStates;
       setRobotJointStates(initialJointStates);
@@ -196,7 +195,6 @@ const UrdfUploader = () => {
 
     // Clear video recording states
     setRecordedVideoBlob(null);
-    setRecordedJointStatesData([]);
     setIsPlayingRecordedVideo(false);
     setRecordingStatus("");
     setControlSource("camera");
@@ -210,9 +208,10 @@ const UrdfUploader = () => {
     setStatus("Rendering error occurred. Please refresh and try again.");
   }, []);
 
-  // MediaPipe results handler
+  // MediaPipe results handler - unified for both live and recorded video
   const handleMediaPipeResults = useCallback(
     (results) => {
+      // Accept results from both live camera and recorded video
       if (controlSource === "camera" || controlSource === "video") {
         const hasTracking = !!results.poseLandmarks;
         setIsTracking(hasTracking);
@@ -224,32 +223,10 @@ const UrdfUploader = () => {
     [controlSource],
   );
 
-  // Video recording handlers for VideoRecorder component
+  // Video recording handlers
   const handleRecordingStatusChange = useCallback((status, recording) => {
     setRecordingStatus(status);
     setIsRecording(recording);
-
-    if (recording) {
-      // Start recording joint states
-      setRecordedJointStatesData([]);
-      recordingIntervalRef.current = setInterval(() => {
-        if (robotJointStatesRef.current) {
-          setRecordedJointStatesData((prev) => [
-            ...prev,
-            {
-              ...robotJointStatesRef.current,
-              timestamp: Date.now(),
-            },
-          ]);
-        }
-      }, 33); // ~30 FPS
-    } else {
-      // Stop recording joint states
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
-      }
-    }
   }, []);
 
   const handleVideoAvailable = useCallback((videoBlob) => {
@@ -257,41 +234,24 @@ const UrdfUploader = () => {
     setRecordingStatus("Video recording completed and ready for playback.");
   }, []);
 
-  const handlePlayRecordedData = useCallback((jointStatesData) => {
-    if (!jointStatesData || jointStatesData.length === 0) {
-      console.log("No joint states data to play back");
+  // Handle recorded video playback with MediaPipe analysis
+  const handlePlayRecordedVideo = useCallback((videoElement) => {
+    if (!videoElement) {
+      // Playback ended, switch back to camera
+      setControlSource("camera");
+      setIsPlayingRecordedVideo(false);
+      console.log("Playback ended, switching back to camera control");
       return;
     }
 
-    console.log(
-      "Playing recorded joint states data:",
-      jointStatesData.length,
-      "frames",
-    );
+    console.log("Starting recorded video playback with MediaPipe analysis");
+    setControlSource("video");
+    setIsPlayingRecordedVideo(true);
 
-    // Set control source to recorded for playback
-    setControlSource("recorded");
-
-    let frameIndex = 0;
-    const playbackInterval = setInterval(() => {
-      if (frameIndex >= jointStatesData.length) {
-        clearInterval(playbackInterval);
-        setIsPlayingRecordedVideo(false);
-        setControlSource("camera"); // Switch back to camera after playback
-        console.log("Playback completed, switching back to camera control");
-        return;
-      }
-
-      const frameData = jointStatesData[frameIndex];
-      if (frameData) {
-        // Remove timestamp before applying to robot
-        const { timestamp, ...jointStates } = frameData;
-        robotJointStatesRef.current = jointStates;
-        setRobotJointStates(jointStates);
-      }
-
-      frameIndex++;
-    }, 33); // ~30 FPS playback
+    // Set up MediaPipe to analyze the recorded video
+    if (recordedVideoMediaPipeRef.current) {
+      recordedVideoMediaPipeRef.current.setVideoSource(videoElement);
+    }
   }, []);
 
   const resetErrorBoundary = useCallback(() => {
@@ -308,37 +268,24 @@ const UrdfUploader = () => {
     return `robot-${processedUrdfData.name}-${meshFiles.size}`;
   }, [processedUrdfData?.name, meshFiles.size]);
 
-  // Sync ref with state for recording purposes
+  // Sync ref with state
   useEffect(() => {
     robotJointStatesRef.current = robotJointStates;
   }, [robotJointStates]);
-
-  // Set up drawing canvas ref for video recording
-  useEffect(() => {
-    if (
-      mediaPipeTrackerRef.current &&
-      mediaPipeTrackerRef.current.getVideoElement
-    ) {
-      cameraVideoRef.current = mediaPipeTrackerRef.current.getVideoElement();
-    }
-  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       cleanupBlobUrls();
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
     };
   }, [cleanupBlobUrls]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
       <div className="max-w-full mx-auto h-screen grid lg:grid-cols-4 grid-cols-1 gap-0">
-        {/* Left Column - Controls (1/4 width) */}
+        {/* Left Column - Controls */}
         <div className="bg-slate-900/80 backdrop-blur-sm lg:border-r lg:border-b-0 border-b border-purple-500/20 p-4 overflow-y-auto flex flex-col gap-6">
-          {/* File Upload Panel - Full width now */}
+          {/* File Upload Panel */}
           <div>
             <FileUploadPanel
               urdfFile={urdfFile}
@@ -364,13 +311,12 @@ const UrdfUploader = () => {
             isRobotLoaded={robotLoadedRef.current}
             isPlayingRecordedVideo={isPlayingRecordedVideo}
             setIsPlayingRecordedVideo={setIsPlayingRecordedVideo}
-            recordedJointStatesData={recordedJointStatesData}
-            onPlayRecordedData={handlePlayRecordedData}
             recordedVideoPlayerRef={recordedVideoPlayerRef}
+            onPlayRecordedVideo={handlePlayRecordedVideo}
           />
         </div>
 
-        {/* Right Column - 3D Model and Camera (3/4 width) */}
+        {/* Right Column - 3D Model and Camera */}
         <div className="relative flex flex-col lg:col-span-3">
           {/* Body Controller */}
           <BodyController
@@ -384,7 +330,7 @@ const UrdfUploader = () => {
 
           {/* Top Right Controls */}
           <div className="absolute top-0 right-0 z-30 flex flex-col gap-4">
-            {/* MediaPipe Camera Feed */}
+            {/* Live MediaPipe Camera Feed */}
             {!isPlayingRecordedVideo && (
               <MediaPipeTracker
                 ref={mediaPipeTrackerRef}
@@ -396,7 +342,7 @@ const UrdfUploader = () => {
               />
             )}
 
-            {/* Recorded Video Player - Below live camera feed */}
+            {/* Recorded Video Player with MediaPipe Analysis */}
             {recordedVideoBlob && (
               <div className="bg-black/80 rounded-lg p-2 backdrop-blur-sm border border-purple-500/20">
                 <video
@@ -406,11 +352,25 @@ const UrdfUploader = () => {
                   muted
                   style={{ display: isPlayingRecordedVideo ? "block" : "none" }}
                 />
+                {/* MediaPipe tracker for recorded video - processes video stream in real-time */}
+                {isPlayingRecordedVideo && (
+                  <div className="absolute top-2 left-2 w-80 h-60 pointer-events-none">
+                    <MediaPipeTracker
+                      ref={recordedVideoMediaPipeRef}
+                      onResults={handleMediaPipeResults}
+                      isTracking={isTracking}
+                      width={320}
+                      height={240}
+                      videoSource={recordedVideoPlayerRef.current}
+                      showVideo={false} // Hide the video element, just process landmarks
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Debug Info Panel - Bottom Right Corner */}
+          {/* Debug Info Panel */}
           {robotLoadedRef.current && (
             <div className="absolute bottom-4 right-4 z-30 bg-black/75 text-white p-3 rounded-lg text-sm backdrop-blur-sm border border-gray-700 max-w-xs">
               <div className="space-y-1">
@@ -434,15 +394,12 @@ const UrdfUploader = () => {
                   ></div>
                   <span>Recording: {isRecording ? "Active" : "Inactive"}</span>
                 </div>
-                <div className="text-gray-300">
-                  Recorded Frames: {recordedJointStatesData.length}
-                </div>
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-2 h-2 rounded-full ${
                       controlSource === "camera"
                         ? "bg-blue-500"
-                        : controlSource === "recorded"
+                        : controlSource === "video"
                         ? "bg-purple-500"
                         : "bg-gray-500"
                     }`}
@@ -463,14 +420,6 @@ const UrdfUploader = () => {
             </div>
           )}
 
-          {/* Hidden canvas for video recording */}
-          <canvas
-            ref={drawingCanvasRef}
-            className="hidden"
-            width={640}
-            height={480}
-          />
-
           {/* 3D Canvas */}
           {robotLoadRequested && processedUrdfData && !canvasError ? (
             <div className="w-full h-full bg-gradient-to-br from-slate-900/50 to-purple-900/30">
@@ -486,22 +435,6 @@ const UrdfUploader = () => {
                 onError={handleCanvasError}
                 onCreated={({ gl }) => {
                   gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                  // Set up canvas for recording
-                  if (drawingCanvasRef.current) {
-                    const canvas = drawingCanvasRef.current;
-                    const ctx = canvas.getContext("2d");
-                    canvas.width = gl.domElement.width;
-                    canvas.height = gl.domElement.height;
-
-                    // Copy WebGL canvas to recording canvas periodically
-                    const copyCanvas = () => {
-                      if (canvas && ctx && gl.domElement) {
-                        ctx.drawImage(gl.domElement, 0, 0);
-                      }
-                      requestAnimationFrame(copyCanvas);
-                    };
-                    copyCanvas();
-                  }
                 }}
               >
                 <ambientLight intensity={0.6} />

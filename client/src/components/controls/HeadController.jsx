@@ -18,8 +18,8 @@ const HeadController = ({
         try {
             const noseLandmark = poseLandmarks[0];
             if (noseLandmark) {
-                const headYaw = mapRange(noseLandmark.x, 0, 1, Math.PI/4, -Math.PI/4);
-                const headPitch = mapRange(noseLandmark.y, 0, 1, -Math.PI/4, Math.PI/4);
+                const headYaw = mapRange(noseLandmark.x, 0, 1, Math.PI/2, -Math.PI/2);
+                const headPitch = mapRange(noseLandmark.y, 0, 1, -Math.PI/2, Math.PI/2);
                 
                 // Only update if values have changed significantly
                 const threshold = 0.01;

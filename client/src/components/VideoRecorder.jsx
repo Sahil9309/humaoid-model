@@ -8,9 +8,8 @@ const VideoRecorder = ({
   isRobotLoaded,
   isPlayingRecordedVideo,
   setIsPlayingRecordedVideo,
-  recordedJointStatesData,
-  onPlayRecordedData,
   recordedVideoPlayerRef, // Ref to the playback video element in UrdfUploader
+  onPlayRecordedVideo, // New callback to handle recorded video playback
 }) => {
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
@@ -92,7 +91,6 @@ const VideoRecorder = ({
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           recordedChunksRef.current.push(event.data);
-          // console.log(`[VideoRecorder] Data available: ${event.data.size} bytes. Total chunks: ${recordedChunksRef.current.length}`);
         }
       };
 
@@ -166,7 +164,6 @@ const VideoRecorder = ({
       mediaRecorderRef.current &&
       mediaRecorderRef.current.state === "recording"
     ) {
-      // Check actual state of MediaRecorder
       mediaRecorderRef.current.stop();
     } else {
       console.warn(
@@ -183,16 +180,6 @@ const VideoRecorder = ({
     console.log("[VideoRecorder] Attempting to play recorded video.");
     console.log("  localRecordedVideoBlob:", localRecordedVideoBlob);
     console.log("  playerElement:", playerElement);
-    console.log(
-      "  recordedJointStatesData length:",
-      recordedJointStatesData.length,
-    );
-    console.log(
-      "  isPlayingRecordedVideo:",
-      isPlayingRecordedVideo,
-      "isRecording:",
-      isRecording,
-    );
 
     if (
       !localRecordedVideoBlob ||
@@ -201,11 +188,6 @@ const VideoRecorder = ({
     ) {
       console.warn(
         "[VideoRecorder] Playback conditions not met (video or player missing).",
-      );
-      console.warn(
-        `  Blob available: ${!!localRecordedVideoBlob} (size: ${
-          localRecordedVideoBlob?.size
-        }), Player element available: ${!!playerElement}`,
       );
       onRecordingStatusChange(
         "Cannot play: Video not recorded or player unavailable.",
@@ -221,28 +203,23 @@ const VideoRecorder = ({
 
     setIsPlayingRecordedVideo(true);
 
-    // Only trigger joint data playback if there is joint data
-    if (onPlayRecordedData && recordedJointStatesData.length > 0) {
-      onPlayRecordedData(recordedJointStatesData);
-      console.log(
-        "[VideoRecorder] Triggered onPlayRecordedData with",
-        recordedJointStatesData.length,
-        "frames.",
-      );
-    } else {
-      console.warn(
-        "[VideoRecorder] No joint data available for robot animation during playback.",
-      );
-      onPlayRecordedData([]); // Explicitly send empty array to reset robot if necessary
+    // Call the parent component's playback handler
+    // This will set up MediaPipe to analyze the video stream
+    if (onPlayRecordedVideo) {
+      onPlayRecordedVideo(playerElement);
     }
 
     playerElement.onended = () => {
       console.log("[VideoRecorder] Recorded video playback ended.");
-      // Important: setIsPlayingRecordedVideo(false) should be handled by UrdfUploader's handlePlayRecordedData
-      // as it's responsible for coordinating the robot animation loop and resuming live camera.
+      setIsPlayingRecordedVideo(false);
       URL.revokeObjectURL(videoUrl);
       playerElement.src = "";
       playerElement.controls = false;
+      
+      // Notify parent that playback ended
+      if (onPlayRecordedVideo) {
+        onPlayRecordedVideo(null); // null indicates playback ended
+      }
     };
 
     playerElement
@@ -252,46 +229,26 @@ const VideoRecorder = ({
       })
       .catch((e) => {
         console.error(
-          "[VideoRecorder] Error playing recorded video (possible autoplay block or codec issue):",
+          "[VideoRecorder] Error playing recorded video:",
           e,
         );
         onRecordingStatusChange(
-          `Error playing video: ${e.name} - ${e.message}. Check browser console for details.`,
+          `Error playing video: ${e.name} - ${e.message}`,
           false,
         );
-        setIsPlayingRecordedVideo(false); // Reset on error
+        setIsPlayingRecordedVideo(false);
         try {
           URL.revokeObjectURL(videoUrl);
         } catch (revokeErr) {
           console.warn("Error revoking URL after playback error:", revokeErr);
         }
       });
-    console.log(
-      "[VideoRecorder] Attempted to play video from blob URL:",
-      videoUrl,
-    );
   }, [
     localRecordedVideoBlob,
     setIsPlayingRecordedVideo,
-    onPlayRecordedData,
-    recordedJointStatesData,
     recordedVideoPlayerRef,
     onRecordingStatusChange,
-    isRecording,
-  ]);
-
-  useEffect(() => {
-    // console.log("--- Current Button States ---");
-    // console.log("Start Recording disabled:", isRecording || !isRobotLoaded || isPlayingRecordedVideo);
-    // console.log("Stop Recording disabled:", !isRecording);
-    // console.log("Play Recorded Video disabled:", !localRecordedVideoBlob || localRecordedVideoBlob.size === 0 || isPlayingRecordedVideo || isRecording || recordedJointStatesData.length === 0);
-    // console.log("----------------------------");
-  }, [
-    isRecording,
-    isRobotLoaded,
-    isPlayingRecordedVideo,
-    localRecordedVideoBlob,
-    recordedJointStatesData,
+    onPlayRecordedVideo,
   ]);
 
   useEffect(() => {
@@ -300,21 +257,18 @@ const VideoRecorder = ({
         try {
           URL.revokeObjectURL(localRecordedVideoBlob);
           console.log(
-            "[VideoRecorder] Revoked recorded video Blob URL on cleanup (component unmount).",
+            "[VideoRecorder] Revoked recorded video Blob URL on cleanup.",
           );
         } catch (e) {
           console.warn(
-            "[VideoRecorder] Error revoking recorded video Blob URL on cleanup:",
+            "[VideoRecorder] Error revoking recorded video Blob URL:",
             e,
           );
         }
       }
       if (recordedVideoPlayerRef.current) {
         if (!recordedVideoPlayerRef.current.paused) {
-          recordedVideoPlayerRef.current.pause(); // Ensure video stops playing
-          console.log(
-            "[VideoRecorder] Paused playing video on component unmount.",
-          );
+          recordedVideoPlayerRef.current.pause();
         }
         recordedVideoPlayerRef.current.currentTime = 0;
         recordedVideoPlayerRef.current.src = "";
@@ -349,8 +303,7 @@ const VideoRecorder = ({
             !localRecordedVideoBlob ||
             localRecordedVideoBlob.size === 0 ||
             isPlayingRecordedVideo ||
-            isRecording ||
-            recordedJointStatesData.length === 0
+            isRecording
           }
           className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg hover:shadow-blue-500/25"
         >
@@ -361,9 +314,6 @@ const VideoRecorder = ({
         <p className="mt-3 text-sm text-emerald-400 bg-emerald-900/20 p-2 rounded-lg">
           ✓ Recorded video available. Size:{" "}
           {(localRecordedVideoBlob.size / 1024).toFixed(2)} KB.
-          {recordedJointStatesData.length > 0
-            ? ` Joint frames: ${recordedJointStatesData.length}`
-            : " No joint data recorded."}
         </p>
       )}
     </div>

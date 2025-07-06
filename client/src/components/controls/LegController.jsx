@@ -62,12 +62,12 @@ const LegController = ({
                     lastValuesRef.current.lleg3 = lleg3;
                     lastValuesRef.current.lleg4 = lleg4;
 
-                    newState['LLEG_JOINT0'] = 0;
-                    newState['LLEG_JOINT1'] = lleg1;
-                    newState['LLEG_JOINT2'] = 0;
-                    newState['LLEG_JOINT3'] = lleg3;
-                    newState['LLEG_JOINT4'] = lleg4;
-                    newState['LLEG_JOINT5'] = 0;
+                    newState['lleg_joint0'] = 0;
+                    newState['lleg_joint1'] = lleg1;
+                    newState['lleg_joint2'] = 0;
+                    newState['lleg_joint3'] = lleg3;
+                    newState['lleg_joint4'] = lleg4;
+                    newState['lleg_joint5'] = 0;
                 }
             }
 
@@ -90,12 +90,12 @@ const LegController = ({
                     lastValuesRef.current.rleg3 = rleg3;
                     lastValuesRef.current.rleg4 = rleg4;
 
-                    newState['RLEG_JOINT0'] = 0;
-                    newState['RLEG_JOINT1'] = rleg1;
-                    newState['RLEG_JOINT2'] = 0;
-                    newState['RLEG_JOINT3'] = rleg3;
-                    newState['RLEG_JOINT4'] = rleg4;
-                    newState['RLEG_JOINT5'] = 0;
+                    newState['rleg_joint0'] = 0;
+                    newState['rleg_joint1'] = rleg1;
+                    newState['rleg_joint2'] = 0;
+                    newState['rleg_joint3'] = rleg3;
+                    newState['rleg_joint4'] = rleg4;
+                    newState['rleg_joint5'] = 0;
                 }
             }
 
