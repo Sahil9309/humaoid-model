@@ -12,7 +12,7 @@ import {
 
 const MediaPipeTracker = React.forwardRef(
   (
-    { onResults, isTracking, width = 320, height = 240, cameraStreamRef },
+    { onResults, isTracking, width = 320, height = 240, cameraStreamRef, remoteStream },
     ref,
   ) => {
     const videoRef = useRef(null);
@@ -314,6 +314,22 @@ const MediaPipeTracker = React.forwardRef(
       getVideoElement: () => videoRef.current,
       getCanvasElement: () => canvasRef.current,
     }));
+
+    useEffect(() => {
+      if (remoteStream && videoRef.current) {
+        videoRef.current.srcObject = remoteStream;
+        // Stop local camera if running
+        if (cameraInstanceRef.current) {
+          try {
+            cameraInstanceRef.current.stop();
+          } catch (e) {}
+          cameraInstanceRef.current = null;
+        }
+      } else if (!remoteStream) {
+        // Re-initialize local camera if needed
+        // (your existing camera initialization logic)
+      }
+    }, [remoteStream]);
 
     return (
       <div

@@ -14,6 +14,7 @@ import MediaPipeTracker from "./MediaPipeTracker";
 import FileUploadPanel from "../components/FileUploadPanel";
 import RobotErrorBoundary from "../components/RobotErrorBoundary";
 import VideoRecorder from "../components/VideoRecorder";
+import DesktopWebRTCReceiver from './DesktopWebRTCReceiver';
 
 const UrdfUploader = () => {
   // File states
@@ -55,6 +56,10 @@ const UrdfUploader = () => {
   const mediaPipeTrackerRef = useRef(null);
   const cameraVideoRef = useRef(null);
   const recordedVideoMediaPipeRef = useRef(null); // MediaPipe for recorded video
+
+  // New states
+  const [cameraSource, setCameraSource] = useState('laptop'); // 'laptop' | 'mobile'
+  const [remoteStream, setRemoteStream] = useState(null);
 
   // Process URDF file
   const processedUrdfData = useMemo(() => {
@@ -280,6 +285,14 @@ const UrdfUploader = () => {
     };
   }, [cleanupBlobUrls]);
 
+  // Cleanup when switching camera source
+  useEffect(() => {
+    if (cameraSource === 'laptop') {
+      setRemoteStream(null); // Stop using remote stream
+    }
+    // Optionally, add logic to stop local camera when switching to mobile
+  }, [cameraSource]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
       <div className="max-w-full mx-auto h-screen grid lg:grid-cols-4 grid-cols-1 gap-0">
@@ -314,6 +327,18 @@ const UrdfUploader = () => {
             recordedVideoPlayerRef={recordedVideoPlayerRef}
             onPlayRecordedVideo={handlePlayRecordedVideo}
           />
+
+          <div>
+            <label>Camera Source:</label>
+            <select value={cameraSource} onChange={e => setCameraSource(e.target.value)}>
+              <option value="laptop">Laptop Camera</option>
+              <option value="mobile">Mobile Camera (WebRTC)</option>
+            </select>
+          </div>
+
+          {cameraSource === 'mobile' && (
+            <DesktopWebRTCReceiver onRemoteStream={setRemoteStream} />
+          )}
         </div>
 
         {/* Right Column - 3D Model and Camera */}
@@ -339,6 +364,7 @@ const UrdfUploader = () => {
                 width={320}
                 height={240}
                 cameraStreamRef={cameraVideoRef}
+                remoteStream={cameraSource === 'mobile' ? remoteStream : undefined}
               />
             )}
 
