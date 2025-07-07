@@ -12,7 +12,16 @@ import {
 
 const MediaPipeTracker = React.forwardRef(
   (
-    { onResults, isTracking, width = 320, height = 240, cameraStreamRef, remoteStream },
+    {
+      onResults,
+      isTracking,
+      width = 320,
+      height = 240,
+      cameraStreamRef,
+      remoteStream,
+      isPrimary = true,
+      onStreamReady,
+    },
     ref,
   ) => {
     const videoRef = useRef(null);
@@ -28,6 +37,8 @@ const MediaPipeTracker = React.forwardRef(
 
     const [initializationError, setInitializationError] = useState(null);
     const [cameraReady, setCameraReady] = useState(false);
+    const [currentStreamType, setCurrentStreamType] = useState(null); // 'local' | 'remote'
+    const [isStreaming, setIsStreaming] = useState(false);
 
     // Throttle frame processing to prevent overwhelming MediaPipe
     const FRAME_THROTTLE_MS = 33; // ~30 FPS max
@@ -179,6 +190,76 @@ const MediaPipeTracker = React.forwardRef(
         try {
           if (!videoRef.current || !isMountedRef.current) return;
 
+          // Clean up existing camera instance
+          if (cameraInstanceRef.current) {
+            try {
+              cameraInstanceRef.current.stop();
+            } catch (e) {
+              console.warn(
+                "[MediaPipeTracker] Error stopping existing camera:",
+                e,
+              );
+            }
+            cameraInstanceRef.current = null;
+          }
+
+          // Handle remote stream case
+          if (remoteStream) {
+            videoRef.current.srcObject = remoteStream;
+            setCurrentStreamType("remote");
+            setIsStreaming(true);
+            setCameraReady(true);
+
+            // Start processing frames from remote stream
+            const processRemoteFrame = async () => {
+              if (
+                !holisticRef.current ||
+                !videoRef.current ||
+                !isMountedRef.current ||
+                !remoteStream
+              ) {
+                return;
+              }
+
+              // Throttle frame processing
+              const now = Date.now();
+              if (now - lastFrameTimeRef.current < FRAME_THROTTLE_MS) {
+                requestAnimationFrame(processRemoteFrame);
+                return;
+              }
+
+              if (isProcessingFrameRef.current) {
+                requestAnimationFrame(processRemoteFrame);
+                return;
+              }
+
+              try {
+                isProcessingFrameRef.current = true;
+                lastFrameTimeRef.current = now;
+                await holisticRef.current.send({ image: videoRef.current });
+              } catch (error) {
+                console.error(
+                  "[MediaPipeTracker] Error sending remote frame:",
+                  error,
+                );
+                isProcessingFrameRef.current = false;
+              }
+
+              if (isMountedRef.current && remoteStream) {
+                requestAnimationFrame(processRemoteFrame);
+              }
+            };
+
+            // Ensure video is playing before starting frame processing
+            videoRef.current.onloadeddata = () => {
+              requestAnimationFrame(processRemoteFrame);
+              if (onStreamReady) onStreamReady();
+            };
+
+            return;
+          }
+
+          // Handle local camera case
           const stream = await navigator.mediaDevices.getUserMedia({
             video: {
               width: { ideal: 640 },
@@ -192,12 +273,15 @@ const MediaPipeTracker = React.forwardRef(
             return;
           }
 
+          setCurrentStreamType("local");
+
           cameraInstanceRef.current = new Camera(videoRef.current, {
             onFrame: async () => {
               if (
                 !holisticRef.current ||
                 !videoRef.current ||
-                !isMountedRef.current
+                !isMountedRef.current ||
+                remoteStream // Don't process local frames if remote stream is active
               ) {
                 return;
               }
@@ -229,13 +313,16 @@ const MediaPipeTracker = React.forwardRef(
           });
 
           await cameraInstanceRef.current.start();
+          setIsStreaming(true);
           setCameraReady(true);
+          if (onStreamReady) onStreamReady();
         } catch (error) {
           console.error(
             "[MediaPipeTracker] Camera initialization error:",
             error,
           );
           setInitializationError(`Camera error: ${error.message}`);
+          setIsStreaming(false);
         }
       };
 
@@ -315,27 +402,103 @@ const MediaPipeTracker = React.forwardRef(
       getCanvasElement: () => canvasRef.current,
     }));
 
+    // Handle remote stream changes
     useEffect(() => {
-      if (remoteStream && videoRef.current) {
-        videoRef.current.srcObject = remoteStream;
-        // Stop local camera if running
-        if (cameraInstanceRef.current) {
-          try {
-            cameraInstanceRef.current.stop();
-          } catch (e) {}
-          cameraInstanceRef.current = null;
+      let isEffectMounted = true;
+
+      const handleStreamChange = async () => {
+        if (!isMountedRef.current || !isEffectMounted) return;
+
+        try {
+          // Reset states
+          setCameraReady(false);
+          setIsStreaming(false);
+          setInitializationError(null);
+
+          // Reinitialize camera based on stream type
+          if (holisticRef.current) {
+            if (remoteStream) {
+              console.log("[MediaPipeTracker] Switching to remote stream");
+              videoRef.current.srcObject = remoteStream;
+              setCurrentStreamType("remote");
+              setIsStreaming(true);
+              setCameraReady(true);
+
+              // Set up frame processing for remote stream
+              const processRemoteFrame = async () => {
+                if (
+                  !holisticRef.current ||
+                  !videoRef.current ||
+                  !isMountedRef.current ||
+                  !remoteStream
+                ) {
+                  return;
+                }
+
+                const now = Date.now();
+                if (
+                  now - lastFrameTimeRef.current < FRAME_THROTTLE_MS ||
+                  isProcessingFrameRef.current
+                ) {
+                  requestAnimationFrame(processRemoteFrame);
+                  return;
+                }
+
+                try {
+                  isProcessingFrameRef.current = true;
+                  lastFrameTimeRef.current = now;
+                  await holisticRef.current.send({ image: videoRef.current });
+                } catch (error) {
+                  console.error(
+                    "[MediaPipeTracker] Error processing remote frame:",
+                    error,
+                  );
+                } finally {
+                  isProcessingFrameRef.current = false;
+                }
+
+                if (isMountedRef.current && remoteStream) {
+                  requestAnimationFrame(processRemoteFrame);
+                }
+              };
+
+              videoRef.current.onloadeddata = () => {
+                requestAnimationFrame(processRemoteFrame);
+                if (onStreamReady) onStreamReady();
+              };
+            } else {
+              // Initialize local camera
+              console.log("[MediaPipeTracker] Switching to local camera");
+              // This will be handled by the regular initialization effect
+              window.location.reload(); // Temporary solution to ensure clean state
+            }
+          }
+        } catch (error) {
+          console.error("[MediaPipeTracker] Stream change error:", error);
+          setInitializationError(`Stream switch error: ${error.message}`);
         }
-      } else if (!remoteStream) {
-        // Re-initialize local camera if needed
-        // (your existing camera initialization logic)
-      }
-    }, [remoteStream]);
+      };
+
+      // Debounce stream changes to avoid rapid switching
+      const timeoutId = setTimeout(handleStreamChange, 100);
+
+      return () => {
+        isEffectMounted = false;
+        clearTimeout(timeoutId);
+      };
+    }, [remoteStream, onStreamReady]);
+
+    // Dynamic positioning and sizing based on isPrimary
+    const containerClasses = isPrimary
+      ? "absolute top-4 right-4 z-50 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-purple-500"
+      : "absolute bottom-4 right-4 z-40 bg-black rounded-lg overflow-hidden shadow-lg border-2 border-gray-600 opacity-80";
+
+    const containerSize = isPrimary
+      ? { width: `${width}px`, height: `${height}px` }
+      : { width: `${width * 0.75}px`, height: `${height * 0.75}px` };
 
     return (
-      <div
-        className="absolute top-4 right-4 z-50 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700"
-        style={{ width: `${width}px`, height: `${height}px` }}
-      >
+      <div className={containerClasses} style={containerSize}>
         <video
           ref={videoRef}
           className="w-full h-full object-cover transform -scale-x-100"
@@ -352,7 +515,7 @@ const MediaPipeTracker = React.forwardRef(
         />
 
         <div className="absolute top-1 left-1 bg-black bg-opacity-70 text-white px-1 py-0.5 rounded text-xs font-medium z-20">
-          Body Tracking
+          {currentStreamType === "remote" ? "Mobile Camera" : "Laptop Camera"}
         </div>
 
         <div className="absolute top-1 right-1 z-20">

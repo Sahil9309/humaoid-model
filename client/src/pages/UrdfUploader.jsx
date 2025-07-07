@@ -14,7 +14,7 @@ import MediaPipeTracker from "./MediaPipeTracker";
 import FileUploadPanel from "../components/FileUploadPanel";
 import RobotErrorBoundary from "../components/RobotErrorBoundary";
 import VideoRecorder from "../components/VideoRecorder";
-import DesktopWebRTCReceiver from './DesktopWebRTCReceiver';
+import DesktopWebRTCReceiver from "./DesktopWebRTCReceiver";
 
 const UrdfUploader = () => {
   // File states
@@ -58,7 +58,7 @@ const UrdfUploader = () => {
   const recordedVideoMediaPipeRef = useRef(null); // MediaPipe for recorded video
 
   // New states
-  const [cameraSource, setCameraSource] = useState('laptop'); // 'laptop' | 'mobile'
+  const [cameraSource, setCameraSource] = useState("laptop"); // 'laptop' | 'mobile'
   const [remoteStream, setRemoteStream] = useState(null);
 
   // Process URDF file
@@ -287,10 +287,33 @@ const UrdfUploader = () => {
 
   // Cleanup when switching camera source
   useEffect(() => {
-    if (cameraSource === 'laptop') {
-      setRemoteStream(null); // Stop using remote stream
-    }
-    // Optionally, add logic to stop local camera when switching to mobile
+    let isEffectMounted = true;
+
+    const handleCameraSourceChange = async () => {
+      if (!isEffectMounted) return;
+
+      console.log(`Switching camera source to: ${cameraSource}`);
+
+      // Reset tracking states during switch
+      setIsTracking(false);
+      setPoseLandmarks(null);
+      setLeftHandLandmarks(null);
+      setRightHandLandmarks(null);
+
+      if (cameraSource === "laptop") {
+        // Clear remote stream when switching to laptop
+        setRemoteStream(null);
+      }
+
+      // Add a small delay to allow MediaPipe to reinitialize properly
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    };
+
+    handleCameraSourceChange();
+
+    return () => {
+      isEffectMounted = false;
+    };
   }, [cameraSource]);
 
   return (
@@ -328,16 +351,31 @@ const UrdfUploader = () => {
             onPlayRecordedVideo={handlePlayRecordedVideo}
           />
 
-          <div>
-            <label>Camera Source:</label>
-            <select value={cameraSource} onChange={e => setCameraSource(e.target.value)}>
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Camera Source:
+            </label>
+            <select
+              value={cameraSource}
+              onChange={(e) => setCameraSource(e.target.value)}
+              className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
               <option value="laptop">Laptop Camera</option>
               <option value="mobile">Mobile Camera (WebRTC)</option>
             </select>
+            <div className="mt-2 text-xs text-slate-400">
+              Active:{" "}
+              {cameraSource === "mobile" && remoteStream
+                ? "Mobile Camera"
+                : "Laptop Camera"}
+            </div>
           </div>
 
-          {cameraSource === 'mobile' && (
-            <DesktopWebRTCReceiver onRemoteStream={setRemoteStream} />
+          {cameraSource === "mobile" && (
+            <DesktopWebRTCReceiver
+              onRemoteStream={setRemoteStream}
+              hideVideo={!!remoteStream} // Hide when stream is active and being used by MediaPipe
+            />
           )}
         </div>
 
@@ -353,9 +391,9 @@ const UrdfUploader = () => {
             controlSource={controlSource}
           />
 
-          {/* Top Right Controls */}
-          <div className="absolute top-0 right-0 z-30 flex flex-col gap-4">
-            {/* Live MediaPipe Camera Feed */}
+          {/* Camera Feeds */}
+          <div className="absolute top-0 right-0 z-30 w-full h-full pointer-events-none">
+            {/* Primary Camera Feed - Always active */}
             {!isPlayingRecordedVideo && (
               <MediaPipeTracker
                 ref={mediaPipeTrackerRef}
@@ -364,9 +402,25 @@ const UrdfUploader = () => {
                 width={320}
                 height={240}
                 cameraStreamRef={cameraVideoRef}
-                remoteStream={cameraSource === 'mobile' ? remoteStream : undefined}
+                remoteStream={
+                  cameraSource === "mobile" ? remoteStream : undefined
+                }
+                isPrimary={true}
               />
             )}
+
+            {/* Secondary Camera Feed - Show inactive source for quick switching */}
+            {!isPlayingRecordedVideo &&
+              cameraSource === "mobile" &&
+              !remoteStream && (
+                <MediaPipeTracker
+                  onResults={() => {}} // Don't use results from secondary feed
+                  isTracking={false}
+                  width={240}
+                  height={180}
+                  isPrimary={false}
+                />
+              )}
 
             {/* Recorded Video Player with MediaPipe Analysis */}
             {recordedVideoBlob && (
